@@ -1,0 +1,26 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1568625211378.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "3068101856",
+    "id" : "917CF0EC",
+    "lastKnownWriteTime" : 1568712961,
+    "last_content_update" : 1568712961467,
+    "path" : "C:/RENE/Overig/ubiqum/Module 3 IOT/IOT 01/IOT 01.R",
+    "project_path" : "IOT 01.R",
+    "properties" : {
+        "cursorPosition" : "3,18",
+        "scrollLine" : "0",
+        "tempName" : "Untitled1"
+    },
+    "read_only" : false,
+    "read_only_alternatives" : [
+    ],
+    "relative_order" : 1,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}
