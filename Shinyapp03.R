@@ -2,8 +2,7 @@ library(shiny)
 library(ggplot2)
 library(shinydashboard)
 library(dplyr)
-
-#ShinyData <- readRDS('data_ready.rds')
+library(lubridate)
 
 ui <- dashboardPage( skin = "purple",
   dashboardHeader(title = "Energy consumption dashboard",
@@ -67,7 +66,7 @@ ui <- dashboardPage( skin = "purple",
         tabItem(tabName = "forecast",
             h3("Forecasts"),
             box(dateInput("actualdate", "Actual date:", value = "2010-11-26", 
-                          min = NULL, max = NULL, format = "yyyy-mm-dd")
+                          min ="2010-01-01", max="2010-12-31", format = "yyyy-mm-dd")
             )
         )
       )
@@ -77,11 +76,11 @@ ui <- dashboardPage( skin = "purple",
 
 
 
-
 server <- function(input, output) {
+  # import data
   ShinyData <- readRDS('data_ready.rds')
-  #output$datum <- input$daterange[1]
   
+  # Create fake data per device
   MicroData <- ShinyData %>% select( date, Kitchen_avg)
   MicroData$Device <- "Microwave"
   MicroData$Kitchen_avg <- MicroData$Kitchen_avg*0.6
@@ -97,18 +96,23 @@ server <- function(input, output) {
   DishData$Kitchen_avg <- DishData$Kitchen_avg*0.15
   DishData <- rename(DishData, device_usage = Kitchen_avg)
   
-  
-  WashingData <- SelectedData %>% select( date, Laundry_avg)
+  WashingData <- ShinyData %>% select( date, Laundry_avg)
   WashingData$Device <- "Washingmachine"
   WashingData$Laundry_avg <- WashingData$Laundry_avg*0.6
   WashingData <- rename(WashingData, device_usage = Laundry_avg)
   
-  DrierData <- SelectedData %>% select( date, Laundry_avg)
+  DrierData <- ShinyData %>% select( date, Laundry_avg)
   DrierData$Device <- "Tumble-drier"
   DrierData$Laundry_avg <- DrierData$Laundry_avg*0.6
   DrierData <- rename(DrierData, device_usage = Laundry_avg)
   
   DeviceData <- rbind(MicroData,OvenData,DishData, WashingData, DrierData)
+  
+  #create fake forecast data for 2010
+  Real2010 <- ShinyData %>% filter( date>"2009-12-31")
+  Fake2010 <- ShinyData %>% filter( date>"2009-11-26" & date <="2009-12-31")
+  year(Fake2010$date) <- 2010
+  Total2010 <- rbind(Real2010, Fake2010)
   
   SelectedData <- reactive({
     ShinyData %>% filter(date >input$daterange[1] & date < input$daterange[2])
@@ -117,6 +121,8 @@ server <- function(input, output) {
   SelectedDeviceData <- reactive({
     DeviceData %>% filter(date >input$daterange[1] & date < input$daterange[2])
   })
+  
+  
   
 
   output$TotalKWH <- renderInfoBox({
@@ -129,7 +135,7 @@ server <- function(input, output) {
   
   output$TotalAmount <- renderInfoBox({
     infoBox(
-      "€",
+      "euro",
       round(SelectedData() %>%  summarise(sum = sum(ActiveEnergy_avg))*0.17,0),
       icon = icon("credit-card")
     )
