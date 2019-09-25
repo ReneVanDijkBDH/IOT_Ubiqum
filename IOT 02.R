@@ -2,6 +2,7 @@ library(RMySQL)
 library(dplyr)
 library(ggplot2)
 library(lubridate)
+library(fpp2)
 
 ## Create a database connection 
 con = dbConnect(MySQL(), 
@@ -59,10 +60,18 @@ data789$year <- year(data789$DateTime)
 data789$yearmonth <- year(data789$DateTime)*100+month(data789$DateTime)
 
 
-# daily
+# daily data
 daily789 <- arrange(data789 %>%   group_by(Date) %>% 
-                      summarise(minutecount=n(), sub1=sum(Sub_metering_1), 
-                                sub2=sum(Sub_metering_2), sub3=sum(Sub_metering_3)), Date)
+                      summarise(minutecount=n(), 
+                                sub1=sum(Sub_metering_1), 
+                                sub2=sum(Sub_metering_2), 
+                                sub3=sum(Sub_metering_3)), 
+                    Date)
+
+# create time-series
+dailyTS <- ts(daily789,start=2007, frequency=365)
+ggseasonplot(dailyTS, col=rainbow(12), year.labels=TRUE)
+
 
 # visialize
 ggplot(data=daily789, aes(x=Date, y=sub1, group=1)) + geom_line(color="red") 
@@ -71,10 +80,13 @@ ggplot(data=daily789, aes(x=Date, y=sub3, group=1)) + geom_line(color="green")
 
 
 
-# monthly
+# monthly data
 monthly789 <- arrange(data789 %>%   group_by(yearmonth) %>% 
-                      summarise(minutecount=n(), sub1=sum(Sub_metering_1), 
-                      sub2=sum(Sub_metering_2), sub3=sum(Sub_metering_3)), yearmonth)
+                        summarise(minutecount=n(), 
+                                  sub1=sum(Sub_metering_1), 
+                                  sub2=sum(Sub_metering_2), 
+                                  sub3=sum(Sub_metering_3)), 
+                      yearmonth)
 monthly789$yearmonth <- as.character(monthly789$yearmonth)
 
 # visialize
@@ -83,17 +95,18 @@ ggplot(data=monthly789, aes(x=yearmonth, y=sub2, group=1)) + geom_line()
 ggplot(data=monthly789, aes(x=yearmonth, y=sub3, group=1)) + geom_line() 
 
 # Weekday
-
-
 data789$Date <- as.Date(data789$Date)
 data789$WD <- wday(data789$Date, label=TRUE)
 
 WD789 <- arrange(data789 %>%   group_by(WD) %>% 
-                        summarise(minutecount=n(), sub1=sum(Sub_metering_1), 
-                        sub2=sum(Sub_metering_2), sub3=sum(Sub_metering_3)), WD)
+                        summarise(minutecount=n(), 
+                                  sub1=sum(Sub_metering_1), 
+                                  sub2=sum(Sub_metering_2), 
+                                  sub3=sum(Sub_metering_3)), 
+                 WD)
 
-ggplot(data=WD789, aes(x=WD,y = sub1, fill=factor(ifelse(WD=="zo" | WD=="za","Weekend","Weekday")))) +
+ggplot(data=WD789, 
+  aes(x=WD,y = sub1, fill=factor(ifelse(WD=="zo" | WD=="za","Weekend","Weekday")))) +
   geom_bar(stat = "identity") +
   scale_fill_manual(name = "part of week", values=c("grey50", "red")) 
-
 
