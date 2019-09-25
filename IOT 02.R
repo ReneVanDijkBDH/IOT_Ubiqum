@@ -12,10 +12,10 @@ con = dbConnect(MySQL(),
               host='data-analytics-2018.cbrosir2cswx.us-east-1.rds.amazonaws.com')
 
 ## List the tables contained in the database 
-dbListTables(con)
+#dbListTables(con)
 
 ## Lists attributes contained in a table
-dbListFields(con,'yr_2006')
+#dbListFields(con,'yr_2006')
 
 ## Use attribute names to specify specific attributes for download
 yr_2006 <- dbGetQuery(con, "SELECT Date, Time, Sub_metering_1 , Sub_metering_2, Sub_metering_3
@@ -28,48 +28,64 @@ yr_2009 <- dbGetQuery(con, "SELECT Date, Time, Sub_metering_1 , Sub_metering_2, 
                       FROM yr_2009")
 yr_2010 <- dbGetQuery(con, "SELECT Date, Time, Sub_metering_1 , Sub_metering_2, Sub_metering_3
                       FROM yr_2010")
-str(yr_2010)
-summary(yr_2010)
-head(yr_2010)
-tail(yr_2010)
 
+#create dataset for 2007, 2008 & 2009
 data789 <- bind_rows(yr_2007, yr_2008, yr_2009)
 data789 <- arrange(data789, Date, Time)
+
+#add numeric date value
+data789$NumValue <- as.numeric(as.Date(0, origin = as.Date(data789$Date)))
+
 
 # dates with missing minutes
 arrange(data789 %>% group_by(Date) %>% 
           summarise(minutecount=n()) %>%
           filter(minutecount!=1440), minutecount)
 
+arrange(FullData %>% group_by(LoopDate, NumValue) %>% 
+          summarise(minutecount=n()) %>%
+          filter(is.na(NumValue)), -minutecount)
+
+FullData %>% filter(is.na(Sub1))
+
+arrange(FullData %>% group_by(LoopDate) %>% 
+          summarise(minutecount=n()) %>%
+          filter(minutecount!=1440), minutecount)
+
+#add missing data
+LoopDate <- "2007-01-01"
+EndDate <- "2009-12-31"
+FullData <- CompleteMissingData(LoopDate, EndDate, data789)
 
 ## Combine Date and Time attribute values in a new attribute column
-data789 <- cbind(data789,paste(data789$Date,data789$Time), stringsAsFactors=FALSE)
-## Give the new attribute in the 6th column a header name 
-## NOTE: if you downloaded more than 5 attributes you will need to change the column number)
-colnames(data789)[6] <-"DateTime"
+FullData <- cbind(FullData,paste(FullData$Date,FullData$Time), stringsAsFactors=FALSE)
+## Give the new attribute a header name 
+colnames(FullData)[7] <-"DateTime"
+#
+FullData <- FullData %>% rename(Date=LoopDate)
 ## Move the DateTime attribute within the dataset
-data789 <- data789[,c(ncol(data789), 1:(ncol(data789)-1))]
+FullData <- FullData[,c(ncol(FullData), 1:(ncol(FullData)-1))]
 #head(data789)
 
 ## Convert DateTime from POSIXlt to POSIXct 
-data789$DateTime <- as.POSIXct(data789$DateTime, "%Y/%m/%d %H:%M:%S")
+FullData$DateTime <- as.POSIXct(FullData$DateTime, "%Y/%m/%d %H:%M:%S")
 ## Add the time zone
-attr(data789$DateTime, "tzone") <- "Europe/Paris"
+#attr(data789$DateTime, "tzone") <- "Europe/Paris"
 
-data789$year <- year(data789$DateTime)
-data789$yearmonth <- year(data789$DateTime)*100+month(data789$DateTime)
+FullData$year <- year(FullData$Date)
+FullData$yearmonth <- year(FullData$Date)*100+month(FullData$Date)
 
 
 # daily data
-daily789 <- arrange(data789 %>%   group_by(Date) %>% 
+daily789 <- arrange(FullData %>%   group_by(Date) %>% 
                       summarise(minutecount=n(), 
-                                sub1=sum(Sub_metering_1), 
-                                sub2=sum(Sub_metering_2), 
-                                sub3=sum(Sub_metering_3)), 
+                                sub1=sum(Sub1), 
+                                sub2=sum(Sub2), 
+                                sub3=sum(Sub3)), 
                     Date)
 
 # create time-series
-dailyTS <- ts(daily789,start=2007, frequency=365)
+dailyTS <- ts(FullData,start=2007, frequency=365)
 ggseasonplot(dailyTS, col=rainbow(12), year.labels=TRUE)
 
 
@@ -81,13 +97,17 @@ ggplot(data=daily789, aes(x=Date, y=sub3, group=1)) + geom_line(color="green")
 
 
 # monthly data
-monthly789 <- arrange(data789 %>%   group_by(yearmonth) %>% 
+monthly789 <- arrange(FullData %>%   group_by(yearmonth) %>% 
                         summarise(minutecount=n(), 
-                                  sub1=sum(Sub_metering_1), 
-                                  sub2=sum(Sub_metering_2), 
-                                  sub3=sum(Sub_metering_3)), 
+                                  sub1=sum(Sub1), 
+                                  sub2=sum(Sub2), 
+                                  sub3=sum(Sub3)), 
                       yearmonth)
 monthly789$yearmonth <- as.character(monthly789$yearmonth)
+monthlyTS <- ts(monthly789,start=2007, frequency=12)
+ggseasonplot(monthlyTS,x=sub3, col=rainbow(12), year.labels=TRUE)
+
+
 
 # visialize
 ggplot(data=monthly789, aes(x=yearmonth, y=sub1, group=1)) + geom_line() 
