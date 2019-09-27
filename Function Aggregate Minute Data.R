@@ -32,7 +32,7 @@ AggregateMinuteData <- function(FullData, Agg_interval) {
   
   if (Agg_interval == "Monthly") {
     Agg_data <- arrange(FullData %>%   
-                          group_by(yearmonth, month) %>% 
+                          group_by(yearmonth, year,month) %>% 
                           summarise(minutecount=n(), 
                                     Sub1=sum(Sub1), 
                                     Sub2=sum(Sub2), 
@@ -46,6 +46,11 @@ AggregateMinuteData <- function(FullData, Agg_interval) {
                                                 ifelse(month %in% c(4,6,9,11),30,
                                                 ifelse(yearmonth==200802,29,28))))
     Agg_data$Active_Daily <- with(Agg_data, Active_whm/Datadays)
+    Agg_data$monthname <- as.character(month(ymd(010101) + months(Agg_data$month-1),
+                                                  label=TRUE,
+                                                  abbr=TRUE))
+    Agg_data$monthCost <- Agg_data$Active_whm/1000*0.17 
+    
     
   }
   

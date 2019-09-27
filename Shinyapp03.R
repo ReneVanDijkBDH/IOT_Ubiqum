@@ -6,6 +6,8 @@ library(lubridate)
 
 # import data
 ShinyData <- readRDS('data_ready.rds')
+MonthlyCost_FC <- readRDS('MonthlyCost.rds')
+MonthlyCost_FC <- arrange(MonthlyCost_FC,month)
 
 # Create fake data per device
 MicroData <- ShinyData %>% select( date, Kitchen_avg)
@@ -221,9 +223,9 @@ server <- function(input, output) {
     theme(panel.background = element_blank(),
       plot.title = element_text(hjust=0.5,family = "Trebuchet MS", color="#666666", face="bold", size=22))
   })
-  
+
   output$monthlyBarPlot <- renderPlot({
-    ggplot(data = SelectedMonthlyData(), aes(x=Month,y=monthCost, fill=Period)) + 
+    ggplot(data = MonthlyCost_FC, aes(x=reorder(monthname,month),y=monthCost, fill=Period)) + 
     geom_bar(stat="identity") +
     scale_fill_manual(values=c("slateblue", "grey")) +
     ggtitle("Monthly energy cost 2010 (in euro)") +
@@ -233,8 +235,8 @@ server <- function(input, output) {
   
   
   output$MonthFC <- renderTable({ 
-    SelectedMonthlyData() %>% #select(Month, monthCost, Period) %>% 
-      filter(Period=="Expected" & monthCost!=0) %>% select(Month, monthCost)
+    MonthlyCost_FC%>% #select(Month, monthCost, Period) %>% 
+      filter(Period=="Expected" & monthCost!=0) %>% select(monthname, monthCost)
     })
   
   
