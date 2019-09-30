@@ -6,6 +6,9 @@ library(lubridate)
 
 # import data
 ShinyData <- readRDS('data_ready.rds')
+
+
+DailyData <- readRDS('DailyData.rds')
 MonthlyCost_FC <- readRDS('MonthlyCost.rds')
 MonthlyCost_FC <- arrange(MonthlyCost_FC,month)
 
@@ -93,11 +96,6 @@ ui <- dashboardPage( skin = "purple",
           fluidRow(
       
              h3("Energy consumption for selected period"),
-             hr(),
-             infoBoxOutput("TotalKWH", 
-                           width=2),
-             infoBoxOutput("TotalAmount", 
-                           width=2),
              box(dateRangeInput("daterange",
                                 label="select period",
                                 start="2010-10-01",
@@ -105,7 +103,12 @@ ui <- dashboardPage( skin = "purple",
                                 min="2007-01-01", 
                                 max="2010-11-26"),
                 width=4,
-                status = "primary")
+                status = "warning"),
+             infoBoxOutput("TotalKWH", 
+                           width=3),
+             infoBoxOutput("TotalAmount", 
+                           width=3),
+             box(imageOutput("myImage"),width=2,height = 90)
           ),
           hr(),
           box(plotOutput(outputId = "energydata"), 
@@ -152,7 +155,7 @@ server <- function(input, output) {
   
   # create dataframes for presentation based on user inputs
   SelectedData <- reactive({
-    ShinyData %>% filter(date >input$daterange[1] & date < input$daterange[2])
+    DailyData %>% filter(Date >input$daterange[1] & Date < input$daterange[2])
   })
  
   SelectedDeviceData <- reactive({
@@ -166,22 +169,26 @@ server <- function(input, output) {
     return(Total2010)
   })
   
-  SelectedMonthlyData <- reactive({
-    MonthlyActual <- SelectedForecastData() %>% group_by(Month) %>% summarise(monthCost = sum(Past)*0.17)
-    MonthlyActual$Period <- "Spend"
-    MonthlyPredict <- SelectedForecastData() %>% group_by(Month) %>% summarise(monthCost = sum(Future)*0.17)
-    MonthlyPredict$Period <- "Expected"
-    MonthlyCost <- rbind(MonthlyActual, MonthlyPredict)
-    MonthlyCost <- MonthlyCost %>% filter(monthCost!=0)
-    return(MonthlyCost)
-    #SelectedForecastData() %>% group_by(Month) %>% summarise(monthEnergy = sum(ActiveEnergy_avg)*0.17)
-  })
+#  SelectedMonthlyData <- reactive({
+#    MonthlyActual <- SelectedForecastData() %>% 
+#                        group_by(Month) %>% 
+#                        summarise(monthCost = sum(Past)*0.17)
+#    MonthlyActual$Period <- "Spend"
+#    MonthlyPredict <- SelectedForecastData() %>% 
+#                        group_by(Month) %>% 
+#                      summarise(monthCost = sum(Future)*0.17)
+#    MonthlyPredict$Period <- "Expected"
+#    MonthlyCost <- rbind(MonthlyActual, MonthlyPredict)
+#    MonthlyCost <- MonthlyCost %>% filter(monthCost!=0)
+#    return(MonthlyCost)
+#    #SelectedForecastData() %>% group_by(Month) %>% summarise(monthEnergy = sum(ActiveEnergy_avg)*0.17)
+#  })
   
   # Create output Infoboxes
   output$TotalKWH <- renderInfoBox({
     infoBox(
       "KWH",
-      round(SelectedData() %>%  summarise(sum = sum(ActiveEnergy_avg)),0),
+      round(SelectedData() %>%  summarise(sum = sum(Active_whm)/1000),0),
       icon = icon("bar-chart-o")
     )
   })
@@ -189,43 +196,62 @@ server <- function(input, output) {
   output$TotalAmount <- renderInfoBox({
     infoBox(
       "euro",
-      round(SelectedData() %>%  summarise(sum = sum(ActiveEnergy_avg))*0.17,0),
+      round(SelectedData() %>%  summarise(sum = sum(Active_whm)/1000)*0.17,0),
       icon = icon("credit-card")
     )
   })
   
   #create output graphs
+  
+  #dashboard plot energy used in time
   output$energydata <- renderPlot({
     ggplot(data = SelectedData()) + 
-    geom_line(aes(x = date, y = ActiveEnergy_avg),color="slateblue")+
+    geom_line(aes(x = Date, y = Active_whm/1000),color="slateblue")+
     ggtitle("Energy consumption in time") +
+    labs( x="", y = "Consumption in kilowatt") +
     theme(panel.background = element_blank(),
-      plot.title = element_text(hjust=0.5,family = "Trebuchet MS", color="#666666", face="bold", size=22))
+      plot.title = element_text(hjust=0.5,family = "Trebuchet MS", color="#666666", 
+                                face="bold", size=22),
+      axis.text.x = element_text(face="bold", color="#666666", size=16),
+      axis.text.y = element_text(face="bold", color="#666666", size=16))
   })
   
+  #dashboard plot devices
   output$deviceplot <- renderPlot({  
-    ggplot(data=SelectedDeviceData() %>% group_by(Device) %>% summarise(Consump = sum(device_usage)), aes(x=reorder(Device, Consump))) +
+    ggplot(data=SelectedDeviceData() %>% 
+                  group_by(Device) %>% 
+                  summarise(Consump = sum(device_usage)), 
+           aes(x=reorder(Device, Consump))) +
     geom_bar(aes(y=Consump),stat="identity", fill="mediumorchid") +
     coord_flip() +
     labs( y = "Consumption in watt-hour") +
     ggtitle("Top 5 Devices \nConsumption in selected period") +
     theme(panel.background = element_blank(),
-      plot.title = element_text(hjust=0.5,family = "Trebuchet MS", color="#666666", face="bold", size=22),
+      plot.title = element_text(hjust=0.5,family = "Trebuchet MS", color="#666666", 
+                                face="bold", size=22),
       axis.title.y=element_blank(),
-      axis.text.y = element_text(size=16))
+      axis.text.x = element_text(size=16,face="bold", color="#666666"),
+      axis.text.y = element_text(size=16,face="bold", color="#000000"))
   })
   
+  #forecast plot daily usage
   output$forecastLinePlot <- renderPlot({
     ggplot(data = SelectedForecastData()) + 
     geom_line(aes(x = date, y = Past),color="grey")+
     geom_line(aes(x = date, y = Future),color="slateblue")+
     ggtitle("Forecast of energy consumption") +
     theme(panel.background = element_blank(),
-      plot.title = element_text(hjust=0.5,family = "Trebuchet MS", color="#666666", face="bold", size=22))
+      plot.title = element_text(hjust=0.5,family = "Trebuchet MS", color="#666666", 
+                                face="bold", size=22))
   })
-
+  
+  #forecast plot full year
   output$monthlyBarPlot <- renderPlot({
-    ggplot(data = MonthlyCost_FC, aes(x=reorder(monthname,month),y=monthCost, fill=Period)) + 
+    ggplot(data = MonthlyCost_FC %>%
+             filter(Period !="TotalFC"), 
+           aes(x=reorder(monthname,month),
+               y=monthCost, 
+               fill=Period)) + 
     geom_bar(stat="identity") +
     scale_fill_manual(values=c("slateblue", "grey")) +
     ggtitle("Monthly energy cost 2010 (in euro)") +
@@ -233,10 +259,10 @@ server <- function(input, output) {
       plot.title = element_text(hjust=0.5,family = "Trebuchet MS", color="#666666", face="bold", size=22))
   })
   
-  
+  #forecast table expected cost
   output$MonthFC <- renderTable({ 
     MonthlyCost_FC%>% #select(Month, monthCost, Period) %>% 
-      filter(Period=="Expected" & monthCost!=0) %>% select(monthname, monthCost)
+      filter(Period=="TotalFC" & monthCost!=0) %>% select(monthname, monthCost)
     })
   
   
@@ -249,10 +275,18 @@ server <- function(input, output) {
   output$notificationDropdown <- renderMenu({
     dropdownMenu(type = "notifications", .list = notiflist)
   })
-  
-  
-}
 
+  output$myImage <- renderImage({
+    pfad <- "IOTlogo.png"
+    list(src = pfad,
+         contentType = 'image/png',
+         width = 140,
+         height = 75,
+         alt = "This is alternate text")
+  }, deleteFile = F)
+  
+ 
+}
 
 
 shinyApp(ui, server)

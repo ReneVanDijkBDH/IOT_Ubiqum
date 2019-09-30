@@ -55,6 +55,22 @@ CreatePlots <- function(DataSet, PlotType) {
             geom_bar(stat = "identity") +
             scale_fill_manual(name = "part of week", values=c("grey50", "red")) 
   }
+  if (PlotType=="minuteS2") {
+    plot <- ggplot(data=DataSet %>% filter(Date>="2009-06-08" & Date <= "2009-06-08") , 
+                   aes(x=DateTime, y=Sub2)) + 
+      geom_line(color="red") 
+  }
+    if (PlotType=="minuteS3") {
+    plot <- ggplot(data=DataSet %>% filter(Date>="2007-02-17" & Date <= "2007-02-17") , 
+                   aes(x=DateTime, y=Sub3)) + 
+      geom_line(color="red") 
+  }
+  if (PlotType=="monthlyS3_2009") {
+    DataSet$yearmonth <- as.character(DataSet$yearmonth)
+    plot <- ggplot(data=DataSet %>% filter(year==2009), 
+                   aes(x=yearmonth, y=Sub3, group=1)) + 
+      geom_line(color="green") 
+  }
   
   
   

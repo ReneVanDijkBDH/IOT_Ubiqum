@@ -29,79 +29,47 @@ TotalMinuteData <- AddDateColumns(FullMinuteData)
 TotalMinuteData <-AddEnergyColumns(TotalMinuteData)
 
 # aggregate data to daily, weekly and monthly 
-dailyData   <- AggregateMinuteData(TotalMinuteData,"Daily")
+dailyData    <- AggregateMinuteData(TotalMinuteData,"Daily")
 weekdayData  <- AggregateMinuteData(TotalMinuteData,"Weekly")
-monthlyData <- AggregateMinuteData(TotalMinuteData,"Monthly")  
+monthlyData  <- AggregateMinuteData(TotalMinuteData,"Monthly")  
 
 # create time-series
 FullMonths <- monthlyData %>% filter(yearmonth>200612 & yearmonth<201011)
-monthlyTS <- ts(FullMonths$Active_Daily,start=2007, frequency=12)
+monthlyTS  <- ts(FullMonths$Active_Daily,start=2007, frequency=12)
+FullDays   <- dailyData %>%  filter(Date>"2006-12-27" & Date<"2010-11-26")
+Daily_TS  <- ts(FullDays$Active_whm,frequency = 7)
+
+# define train, test and forecast-periods
 monthlyTS_Train <-  window(monthlyTS,start=2007, end =c(2009,12))
 monthlyTS_Test  <-  window(monthlyTS,start=2010)
-monthlyTS_Real <-  window(monthlyTS,start=2007, end =c(2010,10))
-Test_Period <- 10 #months in test-period 
-FC_Period   <- 2 #months to be forecasted
+monthlyTS_Real  <-  window(monthlyTS,start=2007, end =c(2010,10))
+Test_Period     <- 10 #months in test-period 
+FC_Period       <- 2  #months to be forecasted
+FC_Period_Daily <- 36 #days to be forecasted (nov:5 + dec:31)
 
-#analyse time-series
-ggAcf(monthlyTS, lag=12)           #plot
-acf(monthlyTS, lag=12, plot=FALSE) #numers
-
-
-#Create forecasts for training period
-FC_M_mean   <- meanf( monthlyTS_Train, h=Test_Period)
-FC_M_naive  <- naive( monthlyTS_Train, h=Test_Period)
-FC_M_snaive <- snaive(monthlyTS_Train, h=Test_Period)
-FC_M_rwf    <- rwf(   monthlyTS_Train, h=Test_Period, drift = TRUE)
-
-#analyse results
-accuracy(FC_M_mean,monthlyTS_Test)
-accuracy(FC_M_naive,monthlyTS_Test)
-accuracy(FC_M_snaive,monthlyTS_Test)
-accuracy(FC_M_rwf,monthlyTS_Test)
-
-#analyse residials
-res <- residuals(FC_M_snaive)
-
-#gghistogram(res) + ggtitle("Histogram of residuals")
-#ggAcf(res) + ggtitle("ACF of residuals")
-checkresiduals(FC_M_snaive)
-autoplot(FC_M_snaive) # graph with confidence intervals
-autoplot(decompose(monthlyTS)) # decomposition of TS in trend and seasonality
-
-#Forecast for the selected model
+# APPLY: ANALYSIS MONTHLY FORECAST-MODEL TO SELECT PREFERRED MODEL
+# => Forecast for the selected (snaive) model
 FC_Monthly <- snaive(monthlyTS_Real, h=FC_Period)
+FC_Daily <- snaive(Daily_TS, h=FC_Period_Daily)
 
-#convert to dataframe
-FC_Monthly_TS <- FC_M$mean #Convert forecast to TS
-FC_Monthly_DF <- data.frame(energy = c(FC_Monthly_TS), month = c(time(FC_Monthly_TS)))
-FC_Monthly_DF$year <- FC_Monthly_DF$month - FC_Monthly_DF$month%%1
-FC_Monthly_DF$month <- round((FC_Monthly_DF$month%%1) * 12,0)+1
-FC_Monthly_DF$monthname <- as.character(month(ymd(010101) + months(FC_Monthly_DF$month-1),
-                                        label=TRUE,
-                                        abbr=TRUE))
-FC_Monthly_DF$MonthDays <- with(FC_Monthly_DF, ifelse(month %in% c(1, 3, 5, 7, 8, 10, 21),31,
-                                               ifelse(month %in% c(4,6,9,11),30,
-                                               ifelse(year==2008,29,28))))
-FC_Monthly_DF$monthCost <- with(FC_Monthly_DF, energy * MonthDays / 1000 *0.17 )
-# Only Full-months
-# Add current mont based on daily
+# Create output format for monthly forecasts
+MonthlyCost <- CreateMonthlyOutputFormat(FC_Monthly, monthlyData)
 
-MonthlyActual <- monthlyData %>% 
-                    filter(year==2010) %>%
-                    ungroup() %>%
-                    select(month,monthname, monthCost )
-MonthlyActual$Period <- "Spend"
-MonthlyPredict <- FC_Monthly_DF %>% select(month, monthname, monthCost)
-MonthlyPredict$Period <- "Expected"
-#correction on current month for already used energy
-CurrentMonthUsed <- as.numeric(MonthlyActual %>% 
-                                 filter(month==11) %>%
-                                 ungroup() %>%
-                                 select(monthCost ))
-MonthlyPredict$monthCost <- with(MonthlyPredict, ifelse(month==11, monthCost - CurrentMonthUsed, monthCost))
 
-MonthlyCost <- rbind(MonthlyActual, MonthlyPredict)
+# Create RDS files to use in the dashboard
 saveRDS(MonthlyCost, file = "MonthlyCost.rds")
+saveRDS(dailyData, file = "DailyData.rds")
+
+
+#############Devices#################
+##### Sub3
+#FullMinutes <- TotalMinuteData %>% filter(Date>"2006-12-27" & Date<"2010-11-26")
+FullMinutes <- TotalMinuteData %>% filter(Date>"2010-07-01" & Date<"2010-08-08")
+minute_S3_TS <- ts(FullMinutes$Sub3,frequency=1440)
+minute_S3_TS %>%
+  mstl(t.window=10800, s.window="periodic", robust=TRUE) %>%
+  autoplot()
+
 
 
 
@@ -112,8 +80,11 @@ saveRDS(MonthlyCost, file = "MonthlyCost.rds")
 # CreatePlots(monthlyData, "monthlyS1")          # Sub1 monthly basis
 # CreatePlots(monthlyData, "monthlyS2")          # Sub2 monthly basis
 # CreatePlots(monthlyData, "monthlyS3")          # Sub3 monthly basis
+# CreatePlots(monthlyData, "monthlyS3_2009")     # Sub3 monthly basis (2009 only)
 # CreatePlots(monthlyData, "monthlyTot")         # Total & other & subs on monthly basis
 # CreatePlots(monthlyData, "monthlyTotDaily")    # Total vs on daily average (30-days)
+# CreatePlots(TotalMinuteData, "minuteS2")       # 
+# CreatePlots(TotalMinuteData, "minuteS3")       # Sub3 minute-data. fraction of period
 # CreatePlots(weekdayData, "weekdayS1")          # Sub1 weekday basis
 # ggseasonplot(monthlyTS, col=rainbow(12), year.labels=TRUE)
 autoplot(monthlyTS) +
