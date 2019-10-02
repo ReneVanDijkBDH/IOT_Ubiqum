@@ -1,5 +1,6 @@
 RetrieveEnergyData <- function() {
-
+  # this function retrieves energy data from external sources and combines to 1 dataframe
+  
   ## Create a database connection 
   con = dbConnect(MySQL(), 
                   user='deepAnalytics', 
@@ -23,25 +24,26 @@ RetrieveEnergyData <- function() {
                                     Sub_metering_1 , Sub_metering_2, Sub_metering_3,
                                     Global_active_power, Global_reactive_power, 
                                     Global_intensity, Voltage
-                      FROM yr_2007")
+                            FROM yr_2007")
   yr_2008 <- dbGetQuery(con, "SELECT Date, Time, 
                                     Sub_metering_1 , Sub_metering_2, Sub_metering_3,
                                     Global_active_power, Global_reactive_power, 
                                     Global_intensity, Voltage
-                      FROM yr_2008")
+                            FROM yr_2008")
   yr_2009 <- dbGetQuery(con, "SELECT Date, Time, 
                                     Sub_metering_1 , Sub_metering_2, Sub_metering_3,
                                     Global_active_power, Global_reactive_power, 
                                     Global_intensity, Voltage
-                      FROM yr_2009")
+                            FROM yr_2009")
   yr_2010 <- dbGetQuery(con, "SELECT Date, Time, 
                                     Sub_metering_1 , Sub_metering_2, Sub_metering_3,
                                     Global_active_power, Global_reactive_power, 
                                     Global_intensity, Voltage
-                      FROM yr_2010")
+                            FROM yr_2010")
   
   #create combined dataset 
   CombinedData <- bind_rows(yr_2006,yr_2007, yr_2008, yr_2009, yr_2010)
   CombinedData <- arrange(CombinedData, Date, Time)
+  
   return(CombinedData)
 }

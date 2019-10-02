@@ -23,3 +23,17 @@ res <- residuals(FC_M_snaive)
 checkresiduals(FC_M_snaive)
 autoplot(FC_M_snaive) # graph with confidence intervals
 autoplot(decompose(monthlyTS)) # decomposition of TS in trend and seasonality
+autoplot(decompose(monthlyTS_S1)) # decomposition of Sub1 TS in trend and seasonality
+autoplot(decompose(monthlyTS_S2)) # decomposition of Sub2 TS in trend and seasonality
+autoplot(decompose(monthlyTS_S3)) # decomposition of Sub3 TS in trend and seasonality
+
+# plot multiple FC-methods in one graph
+autoplot(monthlyTS) +
+  autolayer(FC_M_mean, series="Mean", PI=FALSE) +
+  autolayer(FC_M_rwf, series="Drift", PI=FALSE) +
+  autolayer(FC_M_naive, series="Naïve", PI=FALSE) +
+  autolayer(FC_M_snaive,series="Seasonal naïve", PI=FALSE) +
+  ggtitle("Forecasts for monthly average daily energy consumption") +
+  xlab("Year") + 
+  ylab("watt-hour per minute") +
+  guides(colour=guide_legend(title="Forecast"))
