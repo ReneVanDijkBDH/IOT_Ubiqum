@@ -15,7 +15,7 @@ ggplot(data=TotalMinuteData %>% filter(Date>="2008-03-01" & Date <= "2008-03-02"
   geom_line(color="red")
 #in hours
 ggplot(data=TotalMinuteData %>% 
-         filter(DateTime>="2008-03-01 13:56:00" & DateTime <= "2008-03-01 14:04:00") , 
+         filter(DateTime>="2008-03-01 13:55:00" & DateTime <= "2008-03-01 14:04:00") , 
        aes(x=DateTime, y=Sub3)) + 
   geom_line(color="red")
 
